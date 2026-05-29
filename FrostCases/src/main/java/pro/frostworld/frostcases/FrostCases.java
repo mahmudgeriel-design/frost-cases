@@ -28,6 +28,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
 
     private File dataFile;
     private FileConfiguration dataConfig;
+    private final List<Integer> activeTasks = new ArrayList<>();
 
     @Override
     public void onEnable() {
@@ -40,7 +41,15 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
         }
         
         getServer().getPluginManager().registerEvents(new CaseListener(this), this);
-        Bukkit.getLogger().info("[FrostCases] Плагин успешно обновлен до версии с блоками и ключами!");
+        startAllAnimations(); 
+        Bukkit.getLogger().info("[FrostCases] Плагин успешно обновлен! Добавлена 3D крутилка донатов!");
+    }
+
+    @Override
+    public void onDisable() {
+        for (int taskId : activeTasks) {
+            Bukkit.getScheduler().cancelTask(taskId);
+        }
     }
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -52,7 +61,10 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
                 }
                 reloadConfig();
                 reloadDataConfig();
-                sendMessage(sender, "&a[FrostCases] Конфиг и база данных успешно перезагружены!");
+                for (int taskId : activeTasks) Bukkit.getScheduler().cancelTask(taskId);
+                activeTasks.clear();
+                startAllAnimations();
+                sendMessage(sender, "&a[FrostCases] Конфиг и анимации успешно перезагружены!");
                 return true;
             }
 
@@ -92,7 +104,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
                     getDataConfig().set(path, result);
                     saveDataConfig();
                     target.sendRawMessage(ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &cУ вас забрали &6" + amount + " &cключ(а/ей) от кейса &b" + caseID));
-                    sendMessage(sender, "&aУ игрока &e" + target.getName() + " &aзабрано &e" + amount + " &aключей.");
+                    sendMessage(sender, "&aУ игрока &e" + target.getName() + " &aзазабрано &e" + amount + " &aключей.");
                 }
                 return true;
             }
@@ -100,10 +112,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
             return true;
         }
 
-        if (!(sender instanceof Player player)) {
-            Bukkit.getLogger().warning("Команды блоков только для игроков!");
-            return true;
-        }
+        if (!(sender instanceof Player player)) return true;
         if (args.length > 0 && args[0].equalsIgnoreCase("setcase")) {
             if (!player.hasPermission("frostcases.admin")) {
                 player.sendRawMessage(ChatColor.RED + "Нет прав!");
@@ -121,7 +130,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
 
             Block targetBlock = player.getTargetBlockExact(5);
             if (targetBlock == null || targetBlock.getType() == Material.AIR) {
-                player.sendRawMessage(ChatColor.RED + "Ты должен смотреть на block (макс. 5 блоков)!");
+                player.sendRawMessage(ChatColor.RED + "Ты должен смотреть на блок!");
                 return true;
             }
 
@@ -131,9 +140,9 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
             getDataConfig().set("placed-cases." + locStr, caseID);
             saveDataConfig();
             
-            createHologram(loc, getConfig().getString("cases." + caseID + ".menu-title", "&bКейс"));
+            setupCaseItems(loc, caseID);
 
-            player.sendRawMessage(ChatColor.GREEN + "Кейс " + caseID + " успешно установлен на этот блок!");
+            player.sendRawMessage(ChatColor.GREEN + "Кейс " + caseID + " успешно установлен со всеми 3D крутилками!");
             return true;
         }
 
@@ -143,10 +152,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
                 return true;
             }
             Block targetBlock = player.getTargetBlockExact(5);
-            if (targetBlock == null) {
-                player.sendRawMessage(ChatColor.RED + "Смотри на блок кейса!");
-                return true;
-            }
+            if (targetBlock == null) return true;
             Location loc = targetBlock.getLocation();
             String locStr = loc.getWorld().getName() + "," + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ();
 
@@ -157,19 +163,11 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
 
             getDataConfig().set("placed-cases." + locStr, null);
             saveDataConfig();
-            removeHologram(loc);
+            removeHolograms(loc);
 
-            player.sendRawMessage(ChatColor.YELLOW + "Кейс успешно удален с этого блока!");
+            player.sendRawMessage(ChatColor.YELLOW + "Кейс и его крутилки успешно удалены!");
             return true;
         }
-
-        String id = args.length > 0 ? args[0].toLowerCase() : "";
-        ConfigurationSection sec = getConfig().getConfigurationSection("cases." + id);
-        if (sec == null) {
-            player.sendRawMessage(ChatColor.RED + "Пиши: /frostcases [название_кейса] или используй блоки!");
-            return true;
-        }
-        openMenu(player, id, sec);
         return true;
     }
 
@@ -195,6 +193,82 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
         p.openInventory(gui);
     }
 
+    private void startAllAnimations() {
+        ConfigurationSection placed = getDataConfig().getConfigurationSection("placed-cases");
+        if (placed == null) return;
+        for (String locStr : placed.getKeys(false)) {
+            String caseID = placed.getString(locStr);
+            String[] parts = locStr.split(",");
+            if (parts.length < 4) continue;
+            try {
+                Location loc = new Location(Bukkit.getWorld(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]), Integer.parseInt(parts[3]));
+                removeHolograms(loc); 
+                setupCaseItems(loc, caseID);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void setupCaseItems(Location loc, String caseID) {
+        Location textLoc = loc.clone().add(0.5, 1.4, 0.5);
+        Location itemLoc = loc.clone().add(0.5, 0.3, 0.5); 
+
+        ArmorStand txtStand = textLoc.getWorld().spawn(textLoc, ArmorStand.class);
+        txtStand.setVisible(false);
+        txtStand.setGravity(false);
+        txtStand.setCustomName(ChatColor.translateAlternateColorCodes('&', getConfig().getString("cases." + caseID + ".menu-title")));
+        txtStand.setCustomNameVisible(true);
+
+        ArmorStand itemStand = itemLoc.getWorld().spawn(itemLoc, ArmorStand.class);
+        itemStand.setVisible(false);
+        itemStand.setGravity(false);
+        itemStand.setSmall(true); 
+
+        List<Material> iconMaterials = new ArrayList<>();
+        iconMaterials.add(Material.LIME_WOOL);
+        iconMaterials.add(Material.GREEN_WOOL);
+        iconMaterials.add(Material.PURPLE_WOOL);
+        iconMaterials.add(Material.RED_WOOL);
+        iconMaterials.add(Material.ORANGE_WOOL);
+        iconMaterials.add(Material.NETHERITE_INGOT);
+
+        int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+            float yaw = 0;
+            int tickCounter = 0;
+            int itemIndex = 0;
+
+            @Override
+            public void run() {
+                if (!itemStand.isValid() || !txtStand.isValid()) return;
+                
+                yaw += 4.0F;
+                if (yaw >= 360) yaw = 0;
+                
+                Location currentLoc = itemStand.getLocation();
+                currentLoc.setYaw(yaw);
+                itemStand.teleport(currentLoc);
+
+                tickCounter++;
+                if (tickCounter >= 30) {
+                    tickCounter = 0;
+                    itemIndex++;
+                    if (itemIndex >= iconMaterials.size()) itemIndex = 0;
+                    itemStand.setHelmet(new ItemStack(iconMaterials.get(itemIndex)));
+                }
+            }
+        }, 0L, 2L); 
+
+        activeTasks.add(taskId);
+    }
+
+    private void removeHolograms(Location loc) {
+        Location center = loc.clone().add(0.5, 1.0, 0.5);
+        for (Entity entity : center.getWorld().getNearbyEntities(center, 1.5, 1.5, 1.5)) {
+            if (entity instanceof ArmorStand) {
+                entity.remove();
+            }
+        }
+    }
+
     private void sendMessage(CommandSender sender, String text) {
         String colored = ChatColor.translateAlternateColorCodes('&', text);
         if (sender instanceof Player p) p.sendRawMessage(colored);
@@ -202,11 +276,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
     }
 
     public FileConfiguration getDataConfig() { return this.dataConfig; }
-    
-    public void saveDataConfig() {
-        try { dataConfig.save(dataFile); } catch (IOException e) { e.printStackTrace(); }
-    }
-
+    public void saveDataConfig() { try { dataConfig.save(dataFile); } catch (IOException e) { e.printStackTrace(); } }
     private void createDataConfig() {
         dataFile = new File(getDataFolder(), "data.yml");
         if (!dataFile.exists()) {
@@ -215,25 +285,5 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
         }
         dataConfig = YamlConfiguration.loadConfiguration(dataFile);
     }
-
     public void reloadDataConfig() { dataConfig = YamlConfiguration.loadConfiguration(dataFile); }
-
-    private void createHologram(Location loc, String text) {
-        Location holoLoc = loc.clone().add(0.5, 1.2, 0.5);
-        ArmorStand as = holoLoc.getWorld().spawn(holoLoc, ArmorStand.class);
-        as.setVisible(false);
-        as.setGravity(false);
-        as.setCanPickupItems(false);
-        as.setCustomName(ChatColor.translateAlternateColorCodes('&', text));
-        as.setCustomNameVisible(true);
-    }
-
-    private void removeHologram(Location loc) {
-        Location holoLoc = loc.clone().add(0.5, 1.2, 0.5);
-        for (Entity entity : holoLoc.getWorld().getNearbyEntities(holoLoc, 0.5, 0.5, 0.5)) {
-            if (entity instanceof ArmorStand) {
-                entity.remove();
-            }
-        }
-    }
 }
