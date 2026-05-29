@@ -136,12 +136,22 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
         return true;
     }
 
-        public void openMenu(Player p, String id, ConfigurationSection sec, String locStr, Location blockLoc) {
+    public void openMenu(Player p, String id, ConfigurationSection sec, String locStr, Location blockLoc) {
         String title = sec.getString("menu-title", "Кейс");
         int size = sec.getInt("menu-size", 27);
         
-        // Заголовок полностью чистый, без кракозябр и без координат мира!
-        Inventory gui = Bukkit.createInventory(null, size, ChatColor.translateAlternateColorCodes('&', title));
+        // Создаем кастомный держатель для инвентаря, чтобы хранить данные скрытно
+        org.bukkit.inventory.InventoryHolder holder = new org.bukkit.inventory.InventoryHolder() {
+            @Override
+            public Inventory getInventory() { return null; }
+            
+            // Вшиваем наши технические данные прямо внутрь инвентаря через toString
+            @Override
+            public String toString() { return id + ";" + locStr; }
+        };
+
+        // Заголовок идеально чистый! Данные ушли в Holder
+        Inventory gui = Bukkit.createInventory(holder, size, ChatColor.translateAlternateColorCodes('&', title));
         
         Material mat = Material.matchMaterial(sec.getString("button-material", "STRUCTURE_VOID"));
         ItemStack item = new ItemStack(mat != null ? mat : Material.STRUCTURE_VOID);
