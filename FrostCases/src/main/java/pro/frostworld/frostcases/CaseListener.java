@@ -13,6 +13,11 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
+
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class CaseListener implements Listener {
     private final FrostCases plugin;
@@ -67,18 +72,16 @@ public class CaseListener implements Listener {
         }
     }
 
-        @EventHandler
+    @EventHandler
     public void onClick(InventoryClickEvent e) {
         if (e.getClickedInventory() == null) return;
         Inventory inv = e.getInventory();
         
-        // Проверяем, что это именно наш инвентарь с кастомными данными
-        if (inv.getHolder() == null || inv.getHolder().getClass().isAnonymousClass() == false) return;
-        
+        if (inv.getHolder() == null) return;
         String dataStr = inv.getHolder().toString();
         if (!dataStr.contains(";")) return;
         
-        e.setCancelled(true); // Сразу намертво блокируем предмет, чтобы он не брался в руку!
+        e.setCancelled(true); 
 
         ConfigurationSection cs = plugin.getConfig().getConfigurationSection("cases");
         if (cs == null) return;
@@ -90,16 +93,15 @@ public class CaseListener implements Listener {
         ConfigurationSection sec = cs.getConfigurationSection(caseID);
         if (sec == null) return;
 
-        // Если игрок кликнул именно по кнопке открытия (слот 13)
         if (e.getSlot() == sec.getInt("button-slot", 13)) {
             Player p = (Player) e.getWhoClicked();
 
             String[] locParts = locStr.split(",");
+            if (locParts.length < 4) { p.closeInventory(); return; }
             org.bukkit.World w = Bukkit.getWorld(locParts[0]);
             if (w == null) { p.closeInventory(); return; }
             Location blockLoc = new Location(w, Integer.parseInt(locParts[1]), Integer.parseInt(locParts[2]), Integer.parseInt(locParts[3]));
 
-            // Проверяем наличие ключей
             String keyPath = "keys." + p.getUniqueId() + "." + caseID;
             int playerKeys = plugin.getDataConfig().getInt(keyPath, 0);
 
@@ -109,13 +111,11 @@ public class CaseListener implements Listener {
                 return;
             }
 
-            // Списываем 1 ключ
             plugin.getDataConfig().set(keyPath, playerKeys - 1);
             plugin.saveDataConfig();
 
-            p.closeInventory(); // Закрываем меню
-            
-            // Запускаем наше идеальное вертикальное Z-колесо
+            p.closeInventory(); 
             plugin.start3DRoulette(p, caseID, sec, locStr, blockLoc);
         }
     }
+}
