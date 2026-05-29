@@ -1,6 +1,5 @@
 package pro.frostworld.frostcases;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -12,79 +11,72 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-
 import java.util.ArrayList;
 import java.util.List;
 
 public final class FrostCases extends JavaPlugin implements CommandExecutor {
-
     @Override
     public void onEnable() {
         saveDefaultConfig();
         getCommand("frostcases").setExecutor(this);
         getServer().getPluginManager().registerEvents(new CaseListener(this), this);
-        getLogger().info("Плагин FrostCases на много кейсов успешно запущен!");
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length > 0 && args[0].equalsIgnoreCase("reload")) {
             if (!sender.hasPermission("frostcases.admin")) {
-                sender.sendMessage(ChatColor.RED + "У тебя нет прав!");
+                if (sender instanceof Player p) {
+                    p.sendRawMessage(ChatColor.RED + "Нет прав!");
+                } else {
+                    sender.sendMessage(ChatColor.RED + "Нет прав!");
+                }
                 return true;
             }
             reloadConfig();
-            sender.sendMessage(ChatColor.GREEN + "Конфиг FrostCases успешно перезагружен!");
+            if (sender instanceof Player p) {
+                p.sendRawMessage(ChatColor.GREEN + "Конфиг перезагружен!");
+            } else {
+                sender.sendMessage(ChatColor.GREEN + "Конфиг перезагружен!");
+            }
             return true;
         }
-
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("Только для игроков!");
-            return true;
-        }
-
+        
+        if (!(sender instanceof Player player)) return true;
+        
         if (args.length < 1) {
-            player.sendMessage(ChatColor.RED + "Используй: /frostcases [donate/frostik/titles]");
+            player.sendRawMessage(ChatColor.RED + "Пиши: /frostcases [donate/frostik/titles]");
             return true;
         }
-
-        String caseID = args[0].toLowerCase();
-        ConfigurationSection caseSection = getConfig().getConfigurationSection("cases." + caseID);
-
-        if (caseSection == null) {
-            player.sendMessage(ChatColor.RED + "Такой кейс не найден в конфиге!");
+        
+        String id = args[0].toLowerCase();
+        ConfigurationSection sec = getConfig().getConfigurationSection("cases." + id);
+        if (sec == null) {
+            player.sendRawMessage(ChatColor.RED + "Кейс не найден!");
             return true;
         }
-
-        openCaseMenu(player, caseID, caseSection);
+        openMenu(player, id, sec);
         return true;
     }
 
-    public void openCaseMenu(Player player, String caseID, ConfigurationSection section) {
-        String title = section.getString("menu-title", "Кейс");
-        int size = section.getInt("menu-size", 27);
-        
-        // Вшиваем ID кейса в заголовок в виде невидимого цветового кода, чтобы Listener понимал, какой именно кейс открыт!
-        String hiddenId = ChatColor.COLOR_CHAR + "x" + ChatColor.COLOR_CHAR + caseID.substring(0,1); 
-        Inventory gui = Bukkit.createInventory(null, size, ChatColor.translateAlternateColorCodes('&', title) + hiddenId);
-
-        Material mat = Material.matchMaterial(section.getString("button-material", "STRUCTURE_VOID"));
+    private void openMenu(Player p, String id, ConfigurationSection sec) {
+        String title = sec.getString("menu-title", "Кейс");
+        int size = sec.getInt("menu-size", 27);
+        String hidden = ChatColor.COLOR_CHAR + "x" + ChatColor.COLOR_CHAR + id.substring(0,1);
+        Inventory gui = org.bukkit.Bukkit.createInventory(null, size, ChatColor.translateAlternateColorCodes('&', title) + hidden);
+        Material mat = Material.matchMaterial(sec.getString("button-material", "STRUCTURE_VOID"));
         if (mat == null) mat = Material.STRUCTURE_VOID;
-
         ItemStack item = new ItemStack(mat);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', section.getString("button-name")));
+        ItemMeta m = item.getItemMeta();
+        if (m != null) {
+            m.setDisplayName(ChatColor.translateAlternateColorCodes('&', sec.getString("button-name")));
             List<String> lore = new ArrayList<>();
-            for (String line : section.getStringList("button-lore")) {
-                lore.add(ChatColor.translateAlternateColorCodes('&', line));
-            }
-            meta.setLore(lore);
-            meta.setCustomModelData(section.getInt("button-custom-model-data", 10000));
-            item.setItemMeta(meta);
+            for (String l : sec.getStringList("button-lore")) lore.add(ChatColor.translateAlternateColorCodes('&', l));
+            m.setLore(lore);
+            m.setCustomModelData(sec.getInt("button-custom-model-data", 10000));
+            item.setItemMeta(m);
         }
-
-        gui.setItem(section.getInt("button-slot", 13), item);
-        player.openInventory(gui);
+        gui.setItem(sec.getInt("button-slot", 13), item);
+        p.openInventory(gui);
     }
 }
