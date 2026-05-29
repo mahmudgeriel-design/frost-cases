@@ -4,5 +4,8 @@ main: pro.frostworld.frostcases.FrostCases
 api-version: 1.16
 commands:
   frostcases:
-    description: Открыть меню определенного кейса FrostCases
+    description: Управление блоками кейсов и открытие меню
     permission: frostcases.use
+  frostworld:
+    description: Системная команда управления ключами и перезагрузки
+    permission: frostcases.admin
