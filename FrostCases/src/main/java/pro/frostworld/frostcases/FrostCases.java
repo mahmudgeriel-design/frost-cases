@@ -248,7 +248,8 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
                     for (String cmd : cmds) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd.replace("%player%", p.getName()));
                     p.sendRawMessage(ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &aВы успешно выиграли " + rew.getString(finalWinner + ".name")));
 
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    // ТУТ ИСПРАВЛЕНО: Заменили 'plugin' на 'FrostCases.this', чтобы Java поняла контекст главного класса!
+                    Bukkit.getScheduler().runTaskLater(FrostCases.this, () -> {
                         winStand.remove(); 
                         runningCases.remove(locStr); 
                         createStaticTitle(blockLoc, caseSection.getString("menu-title")); 
