@@ -1,5 +1,6 @@
 package pro.frostworld.frostcases;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -29,7 +30,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
                 if (sender instanceof Player p) {
                     p.sendRawMessage(ChatColor.RED + "Нет прав!");
                 } else {
-                    sender.sendMessage(ChatColor.RED + "Нет прав!");
+                    Bukkit.getLogger().warning("[FrostCases] Нет прав!");
                 }
                 return true;
             }
@@ -37,7 +38,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
             if (sender instanceof Player p) {
                 p.sendRawMessage(ChatColor.GREEN + "Конфиг перезагружен!");
             } else {
-                sender.sendMessage(ChatColor.GREEN + "Конфиг перезагружен!");
+                Bukkit.getLogger().info("[FrostCases] Конфиг перезагружен!");
             }
             return true;
         }
@@ -63,7 +64,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
         String title = sec.getString("menu-title", "Кейс");
         int size = sec.getInt("menu-size", 27);
         String hidden = ChatColor.COLOR_CHAR + "x" + ChatColor.COLOR_CHAR + id.substring(0,1);
-        Inventory gui = org.bukkit.Bukkit.createInventory(null, size, ChatColor.translateAlternateColorCodes('&', title) + hidden);
+        Inventory gui = Bukkit.createInventory(null, size, ChatColor.translateAlternateColorCodes('&', title) + hidden);
         Material mat = Material.matchMaterial(sec.getString("button-material", "STRUCTURE_VOID"));
         if (mat == null) mat = Material.STRUCTURE_VOID;
         ItemStack item = new ItemStack(mat);
