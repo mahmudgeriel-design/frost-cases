@@ -48,9 +48,8 @@ public class CaseListener implements Listener {
     private void handleCaseOpening(Player p, String locStr, Location blockLoc) {
         String caseID = plugin.getDataConfig().getString("placed-cases." + locStr);
         
-        // Проверяем, не крутится ли этот кейс прямо сейчас кем-то другим
         if (plugin.isCaseRunning(locStr)) {
-            p.sendRawMessage(ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &cЭтот кейс уже кто-то открывает! Подождите!"));
+            p.sendRawMessage(ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &cЭтот кейс уже открывают! Подождите!"));
             return;
         }
 
@@ -84,9 +83,7 @@ public class CaseListener implements Listener {
             ConfigurationSection sec = cs.getConfigurationSection(id);
             String title = ChatColor.translateAlternateColorCodes('&', sec.getString("menu-title", ""));
             
-            // Проверяем нажатие на кнопку "Открыть" (Слот 13)
             if (viewTitle.startsWith(title) && e.getSlot() == sec.getInt("button-slot", 13)) {
-                // Извлекаем скрытые данные локации из заголовка
                 String[] titleParts = viewTitle.split(String.valueOf(ChatColor.COLOR_CHAR) + "z");
                 if (titleParts.length < 2) {
                     p.closeInventory();
@@ -105,13 +102,10 @@ public class CaseListener implements Listener {
                     return;
                 }
 
-                // Списываем ключ
                 plugin.getDataConfig().set(keyPath, playerKeys - 1);
                 plugin.saveDataConfig();
 
-                p.closeInventory(); // Мгновенно закрываем GUI, чтобы смотреть на шалкер!
-                
-                // Запускаем безумную 3D крутилку вокруг блока!
+                p.closeInventory(); 
                 plugin.start3DRoulette(p, id, sec, locStr, blockLoc);
                 break;
             }
