@@ -1,0 +1,76 @@
+cases:
+  # === 1. КЕЙС С ДОНАТАМИ ===
+  donate:
+    menu-title: "&fꈁ&0 Кейс с Донатом"
+    menu-size: 27
+    button-slot: 13
+    button-material: "STRUCTURE_VOID"
+    button-custom-model-data: 10000
+    button-name: "&6&lОТКРЫТЬ КЕЙС С ДОНАТОМ"
+    button-lore:
+      - "&7Внутри лежат привилегии сервера."
+      - "&eНажми, чтобы испытать удачу!"
+    rewards:
+      hunter:
+        name: "&a&lHUNTER"
+        chance: 50.0
+        commands:
+          - "lp user %player% parent add hunter"
+          - "broadcast &6&lКейсы &8» &eИгрок &b%player% &eвыбил привилегию &a&lHUNTER&e!"
+      zeus:
+        name: "&b&lZEUS"
+        chance: 1.5
+        commands:
+          - "lp user %player% parent add zeus"
+          - "broadcast &6&lКейсы &8» &d&lМЕГА-УДАЧА! &eИгрок &b%player% &eВЫБИЛ &b&lZEUS&e!!!"
+
+  # === 2. КЕЙС С ФРОСТИКАМИ (ДОНАТ ВАЛЮТА) ===
+  frostik:
+    menu-title: "&fꈁ&3 Кейс с Фростиками"
+    menu-size: 27
+    button-slot: 13
+    button-material: "GOLD_INGOT"
+    button-custom-model-data: 10001
+    button-name: "&b&lОТКРЫТЬ КЕЙС С ВАЛЮТОЙ"
+    button-lore:
+      - "&7Выигрывай донат-валюту Фростики!"
+      - "&eНажми, чтобы крутить кейс!"
+    rewards:
+      low_coins:
+        name: "&6100 Фростиков"
+        chance: 60.0
+        commands:
+          - "papi parse %player% %eco_give_frostik_100%" # Пример команды выдачи валюты
+          - "playerpoints give %player% 100" # Или через PlayerPoints
+          - "msg %player% &eВы получили 100 фростиков!"
+      jackpot:
+        name: "&d&l5000 Фростиков [ДЖЕКПОТ]"
+        chance: 0.5
+        commands:
+          - "playerpoints give %player% 5000"
+          - "broadcast &6&lКейсы &8» &b%player% &6выиграл ДЖЕКПОТ &d&l5000 Фростиков &6из кейса!"
+
+  # === 3. КЕЙС С ТИТУЛАМИ ===
+  titles:
+    menu-title: "&fꈁ&5 Кейс с Титулами"
+    menu-size: 27
+    button-slot: 13
+    button-material: "NAME_TAG"
+    button-custom-model-data: 10002
+    button-name: "&d&lОТКРЫТЬ КЕЙС С ТИТУЛАМИ"
+    button-lore:
+      - "&7Получи уникальный префикс над головой!"
+      - "&eНажми, чтобы открыть!"
+    rewards:
+      title_pro:
+        name: "&aТитул &b[PRO]"
+        chance: 40.0
+        commands:
+          - "lp user %player% meta setsuffix \" &b[PRO]\""
+          - "msg %player% &aВы получили титул [PRO]!"
+      title_god:
+        name: "&cТитул &4[GOD]"
+        chance: 2.0
+        commands:
+          - "lp user %player% meta setsuffix \" &4[GOD]\""
+          - "broadcast &6&lКейсы &8» &b%player% &eвыбил легендарный титул &4[GOD]&e!"
