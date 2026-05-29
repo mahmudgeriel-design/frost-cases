@@ -152,14 +152,15 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
         gui.setItem(sec.getInt("button-slot", 13), item);
         p.openInventory(gui);
     }
-    public void start3DRoulette(Player p, String caseID, ConfigurationSection caseSection, String locStr, Location blockLoc) {
-        runningCases.add(locStr); 
-        removeHolograms(blockLoc); 
+       public void start3DRoulette(Player p, String caseID, ConfigurationSection caseSection, String locStr, Location blockLoc) {
+        runningCases.add(locStr); // Блокируем кейс от повторных открытий
+        removeHolograms(blockLoc); // Временно убираем статичную надпись
 
         Location centerLoc = blockLoc.clone().add(0.5, 0.5, 0.5);
         ConfigurationSection rew = caseSection.getConfigurationSection("rewards");
         Set<String> keys = rew.getKeys(false);
 
+        // Рассчитываем победителя заранее на основе шансов
         double total = 0;
         for (String k : keys) total += rew.getDouble(k + ".chance");
         double rand = ThreadLocalRandom.current().nextDouble() * total;
@@ -171,88 +172,111 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
         }
         final String finalWinner = winnerKey;
 
-        List<Material> items = new ArrayList<>();
-        items.add(Material.LIME_WOOL); items.add(Material.GREEN_WOOL); items.add(Material.PURPLE_WOOL);
-        items.add(Material.RED_WOOL); items.add(Material.ORANGE_WOOL); items.add(Material.NETHERITE_INGOT);
+        // Названия донатов для парящих текстов
+        List<String> donateNames = new ArrayList<>();
+        donateNames.add("&a&lHUNTER");
+        donateNames.add("&2&lVIPER");
+        donateNames.add("&5&lRAVEN");
+        donateNames.add("&c&lSLAYER");
+        donateNames.add("&6&lMONARCH");
+        donateNames.add("&b&lZEUS");
 
         List<ArmorStand> stands = new ArrayList<>();
-        Location spawnLoc = centerLoc.clone().add(0, -0.5, 0);
+        // Спавним 6 стоек в центре, они плавно раскрутятся в вертикальное колесо
         for (int i = 0; i < 6; i++) {
-            ArmorStand as = spawnLoc.getWorld().spawn(spawnLoc, ArmorStand.class);
+            ArmorStand as = centerLoc.getWorld().spawn(centerLoc, ArmorStand.class);
             as.setVisible(false); as.setGravity(false); as.setSmall(true);
-            as.setHelmet(new ItemStack(items.get(i)));
+            as.setHelmet(new ItemStack(Material.NETHERITE_BLOCK)); // Одинаковые солидные незеритовые кубы
+            
+            as.setCustomName(ChatColor.translateAlternateColorCodes('&', donateNames.get(i % donateNames.size())));
+            as.setCustomNameVisible(true);
+            
             stands.add(as);
         }
 
+        // 6-секундный таймер ВЕРТИКАЛЬНОГО КОЛЕСА ПО ОСИ Z (120 тиков)
         int taskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
             int ticks = 0;
-            double radius = 0.0; 
-            double heightOffset = -0.5; 
+            double radius = 0.0; // Начинаем из центра шалкера
             double angleOffset = 0;
 
             @Override
             public void run() {
                 ticks += 2;
                 
-                double speed = 0.28;
-                if (ticks > 40) speed = 0.20;
-                if (ticks > 70) speed = 0.12;
-                if (ticks > 95) speed = 0.04; 
+                // Замедление колеса к финалу
+                double speed = 0.24;
+                if (ticks > 50) speed = 0.16;
+                if (ticks > 80) speed = 0.08;
+                if (ticks > 105) speed = 0.02; // Колесо почти остановилось
                 
                 angleOffset += speed;
 
+                // За первую секунду (20 тиков) радиус колеса плавно вырастает до 1.2 блоков вокруг шалкера
                 if (ticks <= 20) {
-                    radius += 1.2 / 10.0; 
-                    heightOffset += 0.9 / 10.0; 
+                    radius += 1.2 / 10.0;
                 }
 
+                // МАТЕМАТИКА ВЕРТИКАЛЬНОГО КОЛЕСА ПО ОСИ Z (меняем Y и Z, а X остается ровно по центру!)
                 for (int i = 0; i < stands.size(); i++) {
-                    if (!stands.get(i).isValid()) continue;
-                    double angle = angleOffset + (i * (2 * Math.PI / 6));
-                    double x = Math.cos(angle) * radius;
-                    double z = Math.sin(angle) * radius;
+                    ArmorStand as = stands.get(i);
+                    if (!as.isValid()) continue;
                     
-                    double wave = Math.sin(angleOffset + i) * 0.08;
-                    Location nextLoc = centerLoc.clone().add(x, heightOffset + wave, z);
-                    nextLoc.setYaw((float) Math.toDegrees(angle) + 90);
-                    stands.get(i).teleport(nextLoc);
+                    // Шаг угла для 6 блоков в колесе (разделены ровно по кругу)
+                    double angle = angleOffset + (i * (2 * Math.PI / 6));
+                    
+                    double z = Math.cos(angle) * radius; // Крутим по горизонтали вперед-назад (Z)
+                    double y = Math.sin(angle) * radius; // Крутим по ВЕРТИКАЛИ вверх-вниз (Y)
+                    
+                    // Сдвигаем стойку (высота берется с учетом того, что шлем сидит на голове стойки, опускаем на 0.6)
+                    Location nextLoc = centerLoc.clone().add(0, y - 0.6, z);
+                    
+                    // Блоки стоят строго ровно, смотрят вперед
+                    nextLoc.setYaw(0); 
+                    as.teleport(nextLoc);
                 }
 
+                // Звук кликов колеса (затухает к финалу)
                 boolean shouldPlaySound = false;
-                if (ticks < 40 && ticks % 4 == 0) shouldPlaySound = true;
-                if (ticks >= 40 && ticks < 80 && ticks % 6 == 0) shouldPlaySound = true;
-                if (ticks >= 80 && ticks < 120 && ticks % 10 == 0) shouldPlaySound = true;
+                if (ticks < 50 && ticks % 4 == 0) shouldPlaySound = true;
+                if (ticks >= 50 && ticks < 85 && ticks % 8 == 0) shouldPlaySound = true;
+                if (ticks >= 85 && ticks < 120 && ticks % 14 == 0) shouldPlaySound = true;
                 
                 if (shouldPlaySound && ticks < 120) {
                     p.playSound(centerLoc, Sound.BLOCK_NOTE_BLOCK_XYLOPHONE, 0.8f, 1.4f);
                 }
 
+                // --- 💫 ФИНАЛ: ОСТАНОВКА КОЛЕСА (6-я секунда) ---
                 if (ticks >= 120) {
-                    Bukkit.getScheduler().cancelTask(activeTasks.remove(0));
+                    Bukkit.getScheduler().cancelTask(activeTasks.remove(0)); // Выключаем таймер
                     
+                    // Удаляем 5 лишних улетевших блоков колеса
                     p.playSound(centerLoc, Sound.ENTITY_ITEM_BREAK, 1.2f, 0.8f);
                     for (int i = 1; i < stands.size(); i++) { stands.get(i).remove(); }
                     
+                    // Оставляем один выигрышный блок ровно по центру НАД шалкером (высота 1.1)
                     ArmorStand winStand = stands.get(0);
-                    winStand.setHelmet(new ItemStack(Material.NETHERITE_BLOCK));
-                    
-                    winStand.setCustomName(ChatColor.translateAlternateColorCodes('&', rew.getString(finalWinner + ".name")));
-                    winStand.setCustomNameVisible(true);
-
-                    Location finalLoc = centerLoc.clone().add(0, 1.0, 0);
+                    Location finalLoc = centerLoc.clone().add(0, 1.1, 0);
+                    finalLoc.setYaw(0);
                     winStand.teleport(finalLoc);
                     
+                    // Зажигаем над финальным блоком точное имя выигранного доната
+                    winStand.setCustomName(ChatColor.translateAlternateColorCodes('&', rew.getString(finalWinner + ".name")));
+                    winStand.setCustomNameVisible(true);
+                    
+                    // Победный салют уровней 🎆
                     p.playSound(centerLoc, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
 
+                    // Выдаем донат командами из config.yml
                     List<String> cmds = rew.getStringList(finalWinner + ".commands");
                     for (String cmd : cmds) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd.replace("%player%", p.getName()));
-                    p.sendRawMessage(ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &aВы успешно выиграли " + rew.getString(finalWinner + ".name")));
+                    p.sendRawMessage(ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &aВы выиграли " + rew.getString(finalWinner + ".name")));
 
-                    // ТУТ ИСПРАВЛЕНО: Заменили 'plugin' на 'FrostCases.this', чтобы Java поняла контекст главного класса!
+                    // Приз красиво парит 3 секунды, а потом всё возвращается в дефолт
                     Bukkit.getScheduler().runTaskLater(FrostCases.this, () -> {
                         winStand.remove(); 
-                        runningCases.remove(locStr); 
-                        createStaticTitle(blockLoc, caseSection.getString("menu-title")); 
+                        runningCases.remove(locStr); // Разблокируем кейс
+                        createStaticTitle(blockLoc, caseSection.getString("menu-title")); // Возвращаем название кейса
                     }, 60L); 
                 }
             }
@@ -260,7 +284,7 @@ public final class FrostCases extends JavaPlugin implements CommandExecutor {
 
         activeTasks.add(taskId);
     }
-
+    
     private void startAllStaticTitles() {
         ConfigurationSection placed = getDataConfig().getConfigurationSection("placed-cases");
         if (placed == null) return;
