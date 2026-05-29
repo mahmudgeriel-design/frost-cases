@@ -67,48 +67,55 @@ public class CaseListener implements Listener {
         }
     }
 
-    @EventHandler
+        @EventHandler
     public void onClick(InventoryClickEvent e) {
-        String viewTitle = e.getView().getTitle();
-        if (!viewTitle.contains(String.valueOf(ChatColor.COLOR_CHAR) + "x")) return;
-        e.setCancelled(true);
-
-        if (e.getCurrentItem() == null) return;
-        Player p = (Player) e.getWhoClicked();
+        if (e.getClickedInventory() == null) return;
+        Inventory inv = e.getInventory();
+        
+        // Проверяем, что это именно наш инвентарь с кастомными данными
+        if (inv.getHolder() == null || inv.getHolder().getClass().isAnonymousClass() == false) return;
+        
+        String dataStr = inv.getHolder().toString();
+        if (!dataStr.contains(";")) return;
+        
+        e.setCancelled(true); // Сразу намертво блокируем предмет, чтобы он не брался в руку!
 
         ConfigurationSection cs = plugin.getConfig().getConfigurationSection("cases");
         if (cs == null) return;
 
-        for (String id : cs.getKeys(false)) {
-            ConfigurationSection sec = cs.getConfigurationSection(id);
-            String title = ChatColor.translateAlternateColorCodes('&', sec.getString("menu-title", ""));
-            
-            if (viewTitle.startsWith(title) && e.getSlot() == sec.getInt("button-slot", 13)) {
-                String[] titleParts = viewTitle.split(String.valueOf(ChatColor.COLOR_CHAR) + "z");
-                if (titleParts.length < 2) {
-                    p.closeInventory();
-                    return;
-                }
-                String locStr = titleParts[1];
-                String[] locParts = locStr.split(",");
-                Location blockLoc = new Location(Bukkit.getWorld(locParts[0]), Integer.parseInt(locParts[1]), Integer.parseInt(locParts[2]), Integer.parseInt(locParts[3]));
+        String[] dataParts = dataStr.split(";");
+        String caseID = dataParts[0];
+        String locStr = dataParts[1];
 
-                String keyPath = "keys." + p.getUniqueId() + "." + id;
-                int playerKeys = plugin.getDataConfig().getInt(keyPath, 0);
+        ConfigurationSection sec = cs.getConfigurationSection(caseID);
+        if (sec == null) return;
 
-                if (playerKeys <= 0) {
-                    p.sendRawMessage(ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &cКлючи закончились!"));
-                    p.closeInventory();
-                    return;
-                }
+        // Если игрок кликнул именно по кнопке открытия (слот 13)
+        if (e.getSlot() == sec.getInt("button-slot", 13)) {
+            Player p = (Player) e.getWhoClicked();
 
-                plugin.getDataConfig().set(keyPath, playerKeys - 1);
-                plugin.saveDataConfig();
+            String[] locParts = locStr.split(",");
+            org.bukkit.World w = Bukkit.getWorld(locParts[0]);
+            if (w == null) { p.closeInventory(); return; }
+            Location blockLoc = new Location(w, Integer.parseInt(locParts[1]), Integer.parseInt(locParts[2]), Integer.parseInt(locParts[3]));
 
-                p.closeInventory(); 
-                plugin.start3DRoulette(p, id, sec, locStr, blockLoc);
-                break;
+            // Проверяем наличие ключей
+            String keyPath = "keys." + p.getUniqueId() + "." + caseID;
+            int playerKeys = plugin.getDataConfig().getInt(keyPath, 0);
+
+            if (playerKeys <= 0) {
+                p.sendRawMessage(ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &cКлючи закончились!"));
+                p.closeInventory();
+                return;
             }
+
+            // Списываем 1 ключ
+            plugin.getDataConfig().set(keyPath, playerKeys - 1);
+            plugin.saveDataConfig();
+
+            p.closeInventory(); // Закрываем меню
+            
+            // Запускаем наше идеальное вертикальное Z-колесо
+            plugin.start3DRoulette(p, caseID, sec, locStr, blockLoc);
         }
     }
-}
