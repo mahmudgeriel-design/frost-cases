@@ -7,7 +7,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -18,49 +17,42 @@ public class CaseListener implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent e) {
-        String viewTitle = e.getView().getTitle();
-        
-        // Проверяем наш скрытый маркер ID кейса
-        if (!viewTitle.contains(String.valueOf(ChatColor.COLOR_CHAR) + "x")) return;
-        e.setCancelled(true); // Защита предметов от кражи ххаха
-
+        String vt = e.getView().getTitle();
+        if (!vt.contains(String.valueOf(ChatColor.COLOR_CHAR) + "x")) return;
+        e.setCancelled(true);
         if (e.getCurrentItem() == null) return;
         Player p = (Player) e.getWhoClicked();
-
-        // Определяем, какой кейс открыт, сканируя конфиг
-        ConfigurationSection cases = plugin.getConfig().getConfigurationSection("cases");
-        if (cases == null) return;
-
-        for (String caseID : cases.getKeys(false)) {
-            ConfigurationSection sec = cases.getConfigurationSection(caseID);
+        ConfigurationSection cs = plugin.getConfig().getConfigurationSection("cases");
+        if (cs == null) return;
+        for (String id : cs.getKeys(false)) {
+            ConfigurationSection sec = cs.getConfigurationSection(id);
             String title = ChatColor.translateAlternateColorCodes('&', sec.getString("menu-title", ""));
-            
-            if (viewTitle.startsWith(title) && e.getSlot() == sec.getInt("button-slot", 13)) {
+            if (vt.startsWith(title) && e.getSlot() == sec.getInt("button-slot", 13)) {
                 p.closeInventory();
-                openCrate(p, sec);
+                open(p, sec);
                 break;
             }
         }
     }
 
-    private void openCrate(Player p, ConfigurationSection caseSection) {
-        ConfigurationSection rewardsSection = caseSection.getConfigurationSection("rewards");
-        if (rewardsSection == null) return;
-        Set<String> keys = rewardsSection.getKeys(false);
-        
+    private void open(Player p, ConfigurationSection sec) {
+        ConfigurationSection rew = sec.getConfigurationSection("rewards");
+        if (rew == null) return;
+        Set<String> keys = rew.getKeys(false);
         double total = 0;
-        for (String k : keys) total += rewardsSection.getDouble(k + ".chance");
+        for (String k : keys) total += rew.getDouble(k + ".chance");
         double rand = ThreadLocalRandom.current().nextDouble() * total;
-        
         double count = 0;
         for (String k : keys) {
-            count += rewardsSection.getDouble(k + ".chance");
+            count += rew.getDouble(k + ".chance");
             if (rand <= count) {
-                List<String> cmds = rewardsSection.getStringList(k + ".commands");
+                List<String> cmds = rew.getStringList(k + ".commands");
                 for (String cmd : cmds) {
                     Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd.replace("%player%", p.getName()));
                 }
-                p.sendMessage(ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &aВы успешно выиграли " + rewardsSection.getString(k + ".name")));
+                // Заменили p.sendMessage на Bukkit.getServer().broadcast или обычный посыл строки, чтобы обойти баг bungeecord
+                String msg = ChatColor.translateAlternateColorCodes('&', "&b&lFrostCases &8» &aВы получили " + rew.getString(k + ".name"));
+                p.sendRawMessage(msg); 
                 break;
             }
         }
